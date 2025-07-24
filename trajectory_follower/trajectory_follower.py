@@ -28,7 +28,7 @@ class TrajectoryFollower(Node):
         self.ground_truth_ready = False  # Bandera
 
         self.declare_parameter('goal_tolerance_xy', 0.06)
-        self.declare_parameter('goal_tolerance_yaw', 0.2)
+        self.declare_parameter('goal_tolerance_yaw', 0.1)
         self.tol_xy = self.get_parameter('goal_tolerance_xy').get_parameter_value().double_value
         self.tol_yaw = self.get_parameter('goal_tolerance_yaw').get_parameter_value().double_value
 
@@ -74,6 +74,8 @@ class TrajectoryFollower(Node):
             if self.current_idx >= len(self.waypoints):
                 self.get_logger().info("Trayectoria completada.")
                 self.goal_reached = True
+                rclpy.shutdown()
+                return
             twist = Twist()  # Stop
 
         self.cmd_pub.publish(twist)
