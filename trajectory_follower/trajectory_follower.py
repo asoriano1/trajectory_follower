@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Odometry
 import math
 import yaml
 import sys
@@ -20,7 +21,7 @@ class TrajectoryFollower(Node):
     def __init__(self, waypoints):
         super().__init__('trajectory_follower')
         self.cmd_pub = self.create_publisher(Twist, '/robot/robotnik_base_controller/cmd_vel', 10)
-        self.gt_sub = self.create_subscription(PoseStamped, '/robot/ground_truth', self.gt_callback, 10)
+        self.gt_sub = self.create_subscription(Odometry, '/robot/ground_truth', self.gt_callback, 10)
         self.waypoints = waypoints
         self.current_idx = 0
         self.goal_reached = False
@@ -44,9 +45,9 @@ class TrajectoryFollower(Node):
 
         wp = self.waypoints[self.current_idx]
         # Ground truth pose
-        x = msg.pose.position.x
-        y = msg.pose.position.y
-        q = msg.pose.orientation
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        q = msg.pose.pose.orientation
         yaw = quaternion_to_yaw(q)
 
         dx = wp['x'] - x
