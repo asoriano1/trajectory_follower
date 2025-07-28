@@ -6,6 +6,7 @@ from nav_msgs.msg import Odometry
 import math
 import yaml
 import sys
+import time
 
 def load_waypoints(yaml_path):
     with open(yaml_path, 'r') as f:
@@ -20,6 +21,7 @@ def quaternion_to_yaw(q):
 class TrajectoryFollower(Node):
     def __init__(self, waypoints):
         super().__init__('trajectory_follower')
+        self.done = False
         self.cmd_pub = self.create_publisher(Twist, '/robot/robotnik_base_controller/cmd_vel', 10)
         self.gt_sub = self.create_subscription(Odometry, '/robot/ground_truth', self.gt_callback, 10)
         self.waypoints = waypoints
@@ -28,11 +30,23 @@ class TrajectoryFollower(Node):
         self.ground_truth_ready = False  # Bandera
 
         self.declare_parameter('goal_tolerance_xy', 0.06)
-        self.declare_parameter('goal_tolerance_yaw', 0.1)
+        self.declare_parameter('goal_tolerance_yaw', 0.2)
         self.tol_xy = self.get_parameter('goal_tolerance_xy').get_parameter_value().double_value
         self.tol_yaw = self.get_parameter('goal_tolerance_yaw').get_parameter_value().double_value
 
         self.get_logger().info(f"{len(waypoints)} waypoints loaded.")
+
+    #def exit_node(self):
+    #    self.get_logger().info("Nodo trajectory_follower finalizando y cerrando...")
+    #    self.done = True
+    #    self.destroy_node()
+    #    # Usa un timer para shutdown+exit en el hilo principal (evita problemas de event loop)
+    #    import threading
+    #    def do_shutdown():
+    #        rclpy.shutdown()
+    #        sys.exit(0)
+    #    threading.Timer(0.1, do_shutdown).start()
+
 
     def gt_callback(self, msg):
         if not self.ground_truth_ready:
@@ -74,11 +88,13 @@ class TrajectoryFollower(Node):
             if self.current_idx >= len(self.waypoints):
                 self.get_logger().info("Trayectoria completada.")
                 self.goal_reached = True
-                rclpy.shutdown()
+                self.done = True
                 return
             twist = Twist()  # Stop
 
         self.cmd_pub.publish(twist)
+
+
 
 def main():
     if len(sys.argv) < 2:
@@ -87,8 +103,19 @@ def main():
     waypoints = load_waypoints(sys.argv[1])
     rclpy.init()
     node = TrajectoryFollower(waypoints)
-    rclpy.spin(node)
+    try:
+        while rclpy.ok() and not node.done:
+            rclpy.spin_once(node, timeout_sec=0.2)
+        print("Saliendo...")  
+    except KeyboardInterrupt:
+        pass
+    print("Destruyendo nodo...")
+    node.destroy_node()
+    print("Shutdown ROS2...")
     rclpy.shutdown()
+    time.sleep(0.5)
+    print("Exit 0")
+    sys.exit(0)
 
 if __name__ == '__main__':
     main()
